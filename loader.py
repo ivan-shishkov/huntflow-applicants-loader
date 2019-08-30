@@ -23,6 +23,16 @@ def get_applicant_info_from_excel_database(base_path):
                 }
 
 
+def get_applicant_resume_filepath(base_path, applicant_info):
+    return glob.glob(
+        os.path.join(
+            base_path,
+            applicant_info['vacancy'],
+            f'{applicant_info["full_name"].replace("й", "*").strip()}.*',
+        ),
+    )[0]
+
+
 def get_command_line_arguments():
     parser = configargparse.ArgumentParser()
 
@@ -50,7 +60,10 @@ def main():
     huntflow_api_token = command_line_arguments.token
 
     for applicant_info in get_applicant_info_from_excel_database(source_database_path):
-        pass
+        applicant_info['resume_filepath'] = get_applicant_resume_filepath(
+            source_database_path,
+            applicant_info,
+        )
 
 
 if __name__ == '__main__':
