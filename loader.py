@@ -1,8 +1,23 @@
 import os.path
 import glob
+import urllib.parse
 
 import configargparse
+import requests
 from openpyxl import load_workbook
+
+
+def get_huntflow_account_id(huntflow_api_endpoint_url, huntflow_api_token):
+    headers = {
+        'Authorization': f'Bearer {huntflow_api_token}'
+    }
+    url = urllib.parse.urljoin(huntflow_api_endpoint_url, '/accounts')
+
+    response = requests.get(url, params=None, headers=headers)
+
+    accounts_info = response.json()
+
+    return accounts_info['items'][0]['id']
 
 
 def get_applicant_info_from_excel_database(base_path):
@@ -69,6 +84,8 @@ def main():
     source_database_path = command_line_arguments.path
     huntflow_endpoint_url = command_line_arguments.endpoint
     huntflow_api_token = command_line_arguments.token
+
+    account_id = get_huntflow_account_id(huntflow_endpoint_url, huntflow_api_token)
 
     for applicant_info in get_applicant_info_from_excel_database(source_database_path):
         applicant_info['resume_filepath'] = get_applicant_resume_filepath(
