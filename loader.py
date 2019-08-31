@@ -47,6 +47,13 @@ def get_command_line_arguments():
         required=True,
     )
     parser.add_argument(
+        '--endpoint',
+        help='URL-адрес сервера с Хантфлоу API',
+        env_var='HUNTFLOW_API_ENDPOINT_URL',
+        type=str,
+        required=True,
+    )
+    parser.add_argument(
         '--token',
         help='Персональный токен для работы с Хантфлоу API',
         env_var='HUNTFLOW_API_TOKEN',
@@ -60,6 +67,7 @@ def main():
     command_line_arguments = get_command_line_arguments()
 
     source_database_path = command_line_arguments.path
+    huntflow_endpoint_url = command_line_arguments.endpoint
     huntflow_api_token = command_line_arguments.token
 
     for applicant_info in get_applicant_info_from_excel_database(source_database_path):
