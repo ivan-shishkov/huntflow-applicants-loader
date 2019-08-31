@@ -7,19 +7,20 @@ import requests
 from openpyxl import load_workbook
 
 
-def fetch_json_content_with_huntflow_api(url, api_token):
-    headers = {
-        'Authorization': f'Bearer {api_token}'
-    }
-    response = requests.get(url, headers=headers)
+def get_session(api_token):
+    session = requests.Session()
+    session.headers.update(
+        {
+            'Authorization': f'Bearer {api_token}',
+        },
+    )
+    return session
 
-    return response.json()
 
-
-def get_huntflow_account_id(huntflow_api_endpoint_url, huntflow_api_token):
+def get_huntflow_account_id(session, huntflow_api_endpoint_url):
     url = urllib.parse.urljoin(huntflow_api_endpoint_url, '/accounts')
 
-    accounts_info = fetch_json_content_with_huntflow_api(url, huntflow_api_token)
+    accounts_info = session.get(url).json()
 
     return accounts_info['items'][0]['id']
 
@@ -89,13 +90,17 @@ def main():
     huntflow_endpoint_url = command_line_arguments.endpoint
     huntflow_api_token = command_line_arguments.token
 
-    account_id = get_huntflow_account_id(huntflow_endpoint_url, huntflow_api_token)
+    session = get_session(huntflow_api_token)
+
+    account_id = get_huntflow_account_id(session, huntflow_endpoint_url)
 
     for applicant_info in get_applicant_info_from_excel_database(source_database_path):
         applicant_info['resume_filepath'] = get_applicant_resume_filepath(
             source_database_path,
             applicant_info,
         )
+
+    session.close()
 
 
 if __name__ == '__main__':
