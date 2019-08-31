@@ -10,17 +10,20 @@ def get_applicant_info_from_excel_database(base_path):
 
     workbook = load_workbook(excel_filepath)
 
-    for worksheet in workbook:
-        for row_number, row_values in enumerate(worksheet.values):
-            if row_number > 0:
-                yield {
-                    'order_number': row_number,
-                    'vacancy': row_values[0],
-                    'full_name': row_values[1],
-                    'desired_salary': row_values[2],
-                    'comment': row_values[3],
-                    'status': row_values[4],
-                }
+    worksheet = workbook.worksheets[0]
+
+    for row_number, row_values in enumerate(worksheet.values):
+        if row_number < 1:
+            continue
+
+        yield {
+            'order_number': row_number,
+            'vacancy': row_values[0],
+            'full_name': row_values[1],
+            'desired_salary': row_values[2],
+            'comment': row_values[3],
+            'status': row_values[4],
+        }
 
 
 def get_applicant_resume_filepath(base_path, applicant_info):
