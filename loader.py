@@ -7,15 +7,19 @@ import requests
 from openpyxl import load_workbook
 
 
-def get_huntflow_account_id(huntflow_api_endpoint_url, huntflow_api_token):
+def fetch_json_content_with_huntflow_api(url, api_token):
     headers = {
-        'Authorization': f'Bearer {huntflow_api_token}'
+        'Authorization': f'Bearer {api_token}'
     }
+    response = requests.get(url, headers=headers)
+
+    return response.json()
+
+
+def get_huntflow_account_id(huntflow_api_endpoint_url, huntflow_api_token):
     url = urllib.parse.urljoin(huntflow_api_endpoint_url, '/accounts')
 
-    response = requests.get(url, params=None, headers=headers)
-
-    accounts_info = response.json()
+    accounts_info = fetch_json_content_with_huntflow_api(url, huntflow_api_token)
 
     return accounts_info['items'][0]['id']
 
