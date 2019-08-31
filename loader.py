@@ -1,5 +1,6 @@
 import os.path
 import glob
+import mimetypes
 import urllib.parse
 
 import configargparse
@@ -23,6 +24,26 @@ def get_huntflow_account_id(session, huntflow_api_endpoint_url):
     accounts_info = session.get(url).json()
 
     return accounts_info['items'][0]['id']
+
+
+def get_parsed_applicant_resume(
+        session, huntflow_api_endpoint_url, account_id, source_resume_filepath):
+    url = urllib.parse.urljoin(huntflow_api_endpoint_url, f'/account/{account_id}/upload')
+
+    files = {
+        'file': (
+            os.path.basename(source_resume_filepath),
+            open(source_resume_filepath, 'rb'),
+            mimetypes.guess_type(source_resume_filepath)[0],
+        ),
+    }
+    headers = {
+        'X-File-Parse': 'true',
+    }
+
+    response = session.post(url, headers=headers, files=files)
+
+    return response.json()
 
 
 def get_applicant_info_from_excel_database(base_path):
@@ -98,6 +119,13 @@ def main():
         applicant_info['resume_filepath'] = get_applicant_resume_filepath(
             source_database_path,
             applicant_info,
+        )
+
+        applicant_info['parsed_resume'] = get_parsed_applicant_resume(
+            session=session,
+            huntflow_api_endpoint_url=huntflow_endpoint_url,
+            account_id=account_id,
+            source_resume_filepath=applicant_info['resume_filepath'],
         )
 
     session.close()
