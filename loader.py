@@ -46,6 +46,49 @@ def get_parsed_applicant_resume(
     return response.json()
 
 
+def add_applicant_to_huntflow_database(
+        session, huntflow_api_endpoint_url, account_id, applicant_info):
+    url = urllib.parse.urljoin(huntflow_api_endpoint_url, f'/account/{account_id}/applicants')
+
+    resume = applicant_info['parsed_resume']
+    desired_salary = applicant_info['desired_salary']
+
+    resume_fields = resume['fields']
+
+    birthdate = resume_fields['birthdate']
+
+    applicant = {
+        'last_name': resume_fields['name']['last'],
+        'first_name': resume_fields['name']['first'],
+        'middle_name': resume_fields['name']['middle'],
+        'phone': resume_fields['phones'][0],
+        'email': resume_fields['email'],
+        'position': resume_fields['position'],
+        'money': resume_fields['salary'] if resume_fields['salary'] else desired_salary,
+        'birthday_day': birthdate['day'] if birthdate else None,
+        'birthday_month': birthdate['month'] if birthdate else None,
+        'birthday_year': birthdate['year'] if birthdate else None,
+        'photo': resume['photo']['id'],
+        'externals': [
+            {
+                'data': {
+                    'body': resume['text'],
+                },
+                'auth_type': 'NATIVE',
+                'files': [
+                    {
+                        'id': resume['id'],
+                    },
+                ],
+            },
+        ],
+    }
+
+    added_applicant_info = session.post(url, json=applicant).json()
+
+    return added_applicant_info['id']
+
+
 def get_applicant_info_from_excel_database(base_path):
     excel_filepath = glob.glob(os.path.join(base_path, '*.xlsx'))[0]
 
@@ -126,6 +169,13 @@ def main():
             huntflow_api_endpoint_url=huntflow_endpoint_url,
             account_id=account_id,
             source_resume_filepath=applicant_info['resume_filepath'],
+        )
+
+        added_applicant_id = add_applicant_to_huntflow_database(
+            session=session,
+            huntflow_api_endpoint_url=huntflow_endpoint_url,
+            account_id=account_id,
+            applicant_info=applicant_info,
         )
 
     session.close()
