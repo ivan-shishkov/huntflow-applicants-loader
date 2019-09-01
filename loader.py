@@ -138,6 +138,10 @@ def get_normalized_salary(source_salary):
     return re.findall(r'\d+', str(source_salary).replace(' ', ''))[0]
 
 
+def get_normalized_full_name(source_full_name):
+    return source_full_name.strip()
+
+
 def get_applicant_info_from_excel_database(base_path):
     excel_filepath = glob.glob(os.path.join(base_path, '*.xlsx'))[0]
 
@@ -152,7 +156,7 @@ def get_applicant_info_from_excel_database(base_path):
         yield {
             'order_number': row_number,
             'vacancy': row_values[0],
-            'full_name': row_values[1],
+            'full_name': get_normalized_full_name(row_values[1]),
             'desired_salary': get_normalized_salary(row_values[2]),
             'comment': row_values[3],
             'status': row_values[4],
@@ -164,7 +168,7 @@ def get_applicant_resume_filepath(base_path, applicant_info):
         os.path.join(
             base_path,
             applicant_info['vacancy'],
-            f'{applicant_info["full_name"].replace("й", "*").strip()}.*',
+            f'{applicant_info["full_name"].replace("й", "*")}.*',
         ),
     )[0]
 
