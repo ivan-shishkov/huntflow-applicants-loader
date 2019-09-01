@@ -105,6 +105,22 @@ def get_vacancy_statuses(session, huntflow_api_endpoint_url, account_id):
     return vacancy_statuses['items']
 
 
+def add_applicant_to_vacancy(
+        session, huntflow_api_endpoint_url, account_id, applicant_id, applicant_info,
+        vacancy_name_to_vacancy_id, status_name_to_status_id):
+    url = urllib.parse.urljoin(huntflow_api_endpoint_url, f'/account/{account_id}/applicants/{applicant_id}/vacancy')
+
+    applicant_vacancy = {
+        'vacancy': vacancy_name_to_vacancy_id[applicant_info['vacancy']],
+        'status': status_name_to_status_id[applicant_info['status']],
+        'comment': applicant_info['comment'],
+    }
+
+    added_applicant_info = session.post(url, json=applicant_vacancy).json()
+
+    return added_applicant_info['id']
+
+
 def get_vacancy_name_to_vacancy_id_dict(vacancies):
     return {
         vacancy['position']: vacancy['id'] for vacancy in vacancies
@@ -212,6 +228,16 @@ def main():
             huntflow_api_endpoint_url=huntflow_endpoint_url,
             account_id=account_id,
             applicant_info=applicant_info,
+        )
+
+        add_applicant_to_vacancy(
+            session=session,
+            huntflow_api_endpoint_url=huntflow_endpoint_url,
+            account_id=account_id,
+            applicant_id=added_applicant_id,
+            applicant_info=applicant_info,
+            vacancy_name_to_vacancy_id=vacancy_name_to_vacancy_id,
+            status_name_to_status_id=status_name_to_status_id,
         )
 
     session.close()
