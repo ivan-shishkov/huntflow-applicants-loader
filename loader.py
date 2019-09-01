@@ -211,6 +211,12 @@ def main():
     )
 
     for applicant_info in get_applicant_info_from_excel_database(source_database_path):
+        print(
+            f'#{applicant_info["order_number"]}: '
+            f'Загружается {applicant_info["full_name"]} '
+            f'на вакансию {applicant_info["vacancy"]}...',
+        )
+
         applicant_info['resume_filepath'] = get_applicant_resume_filepath(
             source_database_path,
             applicant_info,
