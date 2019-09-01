@@ -89,6 +89,20 @@ def add_applicant_to_huntflow_database(
     return added_applicant_info['id']
 
 
+def get_vacancies(session, huntflow_api_endpoint_url, account_id):
+    url = urllib.parse.urljoin(huntflow_api_endpoint_url, f'/account/{account_id}/vacancies')
+
+    vacancies = session.get(url).json()
+
+    return vacancies['items']
+
+
+def get_vacancy_name_to_vacancy_id_dict(vacancies):
+    return {
+        vacancy['position']: vacancy['id'] for vacancy in vacancies
+    }
+
+
 def get_applicant_info_from_excel_database(base_path):
     excel_filepath = glob.glob(os.path.join(base_path, '*.xlsx'))[0]
 
@@ -157,6 +171,10 @@ def main():
     session = get_session(huntflow_api_token)
 
     account_id = get_huntflow_account_id(session, huntflow_endpoint_url)
+
+    vacancy_name_to_vacancy_id = get_vacancy_name_to_vacancy_id_dict(
+        vacancies=get_vacancies(session, huntflow_endpoint_url, account_id),
+    )
 
     for applicant_info in get_applicant_info_from_excel_database(source_database_path):
         applicant_info['resume_filepath'] = get_applicant_resume_filepath(
