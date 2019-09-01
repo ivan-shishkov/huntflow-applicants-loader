@@ -97,9 +97,23 @@ def get_vacancies(session, huntflow_api_endpoint_url, account_id):
     return vacancies['items']
 
 
+def get_vacancy_statuses(session, huntflow_api_endpoint_url, account_id):
+    url = urllib.parse.urljoin(huntflow_api_endpoint_url, f'/account/{account_id}/vacancy/statuses')
+
+    vacancy_statuses = session.get(url).json()
+
+    return vacancy_statuses['items']
+
+
 def get_vacancy_name_to_vacancy_id_dict(vacancies):
     return {
         vacancy['position']: vacancy['id'] for vacancy in vacancies
+    }
+
+
+def get_status_name_to_status_id_dict(vacancy_statuses):
+    return {
+        status['name']: status['id'] for status in vacancy_statuses
     }
 
 
@@ -174,6 +188,10 @@ def main():
 
     vacancy_name_to_vacancy_id = get_vacancy_name_to_vacancy_id_dict(
         vacancies=get_vacancies(session, huntflow_endpoint_url, account_id),
+    )
+
+    status_name_to_status_id = get_status_name_to_status_id_dict(
+        vacancy_statuses=get_vacancy_statuses(session, huntflow_endpoint_url, account_id)
     )
 
     for applicant_info in get_applicant_info_from_excel_database(source_database_path):
