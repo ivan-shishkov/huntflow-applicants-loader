@@ -1,3 +1,5 @@
+import json
+import os
 import os.path
 import glob
 import mimetypes
@@ -190,44 +192,73 @@ def get_command_line_arguments():
     return parser.parse_args()
 
 
+def save_order_number(filepath, order_number):
+    with open(filepath, 'w') as file_object:
+        json.dump({'order_number': order_number}, file_object)
+
+
+def load_order_number(filepath):
+    if not os.path.exists(filepath):
+        return None
+
+    with open(filepath) as file_object:
+        return json.load(file_object)['order_number']
+
+
 def run_applicants_loader(
         source_database_path, session, huntflow_endpoint_url, account_id,
-        vacancy_name_to_vacancy_id, status_name_to_status_id):
-    for applicant_info in get_applicant_info_from_excel_database(source_database_path):
-        print(
-            f'#{applicant_info["order_number"]}: '
-            f'Загружается {applicant_info["full_name"]} '
-            f'на вакансию {applicant_info["vacancy"]}...',
-        )
+        vacancy_name_to_vacancy_id, status_name_to_status_id, save_state_filepath='current.sav'):
+    applicant_info = None
 
-        applicant_resume_filepath = get_applicant_resume_filepath(
-            source_database_path,
-            applicant_info,
-        )
+    order_number = load_order_number(save_state_filepath)
 
-        applicant_info['parsed_resume'] = get_parsed_applicant_resume(
-            session=session,
-            huntflow_api_endpoint_url=huntflow_endpoint_url,
-            account_id=account_id,
-            source_resume_filepath=applicant_resume_filepath,
-        )
+    try:
+        for applicant_info in get_applicant_info_from_excel_database(source_database_path):
+            if order_number and applicant_info['order_number'] < order_number:
+                continue
 
-        added_applicant_id = add_applicant_to_huntflow_database(
-            session=session,
-            huntflow_api_endpoint_url=huntflow_endpoint_url,
-            account_id=account_id,
-            applicant_info=applicant_info,
-        )
+            print(
+                f'#{applicant_info["order_number"]}: '
+                f'Загружается {applicant_info["full_name"]} '
+                f'на вакансию {applicant_info["vacancy"]}...',
+            )
 
-        add_applicant_to_vacancy(
-            session=session,
-            huntflow_api_endpoint_url=huntflow_endpoint_url,
-            account_id=account_id,
-            applicant_id=added_applicant_id,
-            applicant_info=applicant_info,
-            vacancy_name_to_vacancy_id=vacancy_name_to_vacancy_id,
-            status_name_to_status_id=status_name_to_status_id,
-        )
+            applicant_resume_filepath = get_applicant_resume_filepath(
+                source_database_path,
+                applicant_info,
+            )
+
+            applicant_info['parsed_resume'] = get_parsed_applicant_resume(
+                session=session,
+                huntflow_api_endpoint_url=huntflow_endpoint_url,
+                account_id=account_id,
+                source_resume_filepath=applicant_resume_filepath,
+            )
+
+            added_applicant_id = add_applicant_to_huntflow_database(
+                session=session,
+                huntflow_api_endpoint_url=huntflow_endpoint_url,
+                account_id=account_id,
+                applicant_info=applicant_info,
+            )
+
+            add_applicant_to_vacancy(
+                session=session,
+                huntflow_api_endpoint_url=huntflow_endpoint_url,
+                account_id=account_id,
+                applicant_id=added_applicant_id,
+                applicant_info=applicant_info,
+                vacancy_name_to_vacancy_id=vacancy_name_to_vacancy_id,
+                status_name_to_status_id=status_name_to_status_id,
+            )
+    except:
+        if applicant_info:
+            save_order_number(save_state_filepath, applicant_info['order_number'])
+
+        raise
+
+    if os.path.exists(save_state_filepath):
+        os.remove(save_state_filepath)
 
 
 def main():
