@@ -200,25 +200,9 @@ def get_command_line_arguments():
     return parser.parse_args()
 
 
-def main():
-    command_line_arguments = get_command_line_arguments()
-
-    source_database_path = command_line_arguments.path
-    huntflow_endpoint_url = command_line_arguments.endpoint
-    huntflow_api_token = command_line_arguments.token
-
-    session = get_session(huntflow_api_token)
-
-    account_id = get_huntflow_account_id(session, huntflow_endpoint_url)
-
-    vacancy_name_to_vacancy_id = get_vacancy_name_to_vacancy_id_dict(
-        vacancies=get_vacancies(session, huntflow_endpoint_url, account_id),
-    )
-
-    status_name_to_status_id = get_status_name_to_status_id_dict(
-        vacancy_statuses=get_vacancy_statuses(session, huntflow_endpoint_url, account_id)
-    )
-
+def run_applicants_loader(
+        source_database_path, session, huntflow_endpoint_url, account_id,
+        vacancy_name_to_vacancy_id, status_name_to_status_id):
     for applicant_info in get_applicant_info_from_excel_database(source_database_path):
         print(
             f'#{applicant_info["order_number"]}: '
@@ -254,6 +238,35 @@ def main():
             vacancy_name_to_vacancy_id=vacancy_name_to_vacancy_id,
             status_name_to_status_id=status_name_to_status_id,
         )
+
+
+def main():
+    command_line_arguments = get_command_line_arguments()
+
+    source_database_path = command_line_arguments.path
+    huntflow_endpoint_url = command_line_arguments.endpoint
+    huntflow_api_token = command_line_arguments.token
+
+    session = get_session(huntflow_api_token)
+
+    account_id = get_huntflow_account_id(session, huntflow_endpoint_url)
+
+    vacancy_name_to_vacancy_id = get_vacancy_name_to_vacancy_id_dict(
+        vacancies=get_vacancies(session, huntflow_endpoint_url, account_id),
+    )
+
+    status_name_to_status_id = get_status_name_to_status_id_dict(
+        vacancy_statuses=get_vacancy_statuses(session, huntflow_endpoint_url, account_id)
+    )
+
+    run_applicants_loader(
+        source_database_path=source_database_path,
+        session=session,
+        huntflow_endpoint_url=huntflow_endpoint_url,
+        account_id=account_id,
+        vacancy_name_to_vacancy_id=vacancy_name_to_vacancy_id,
+        status_name_to_status_id=status_name_to_status_id,
+    )
 
     session.close()
 
