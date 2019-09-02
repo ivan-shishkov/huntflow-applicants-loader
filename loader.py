@@ -4,6 +4,7 @@ import os.path
 import glob
 import mimetypes
 import re
+import sys
 import urllib.parse
 from enum import IntEnum
 
@@ -322,4 +323,7 @@ def main():
 
 
 if __name__ == '__main__':
-    main()
+    try:
+        main()
+    except requests.exceptions.ConnectionError:
+        sys.exit('Не удалось подключиться к серверу. Проверьте подключение к Интернету')
