@@ -64,7 +64,8 @@ def add_applicant_to_huntflow_database(
         'middle_name': resume_fields['name']['middle'],
         'phone': resume_fields['phones'][0],
         'email': resume_fields['email'],
-        'position': resume_fields['position'],
+        'position': resume_fields['position'] if resume_fields['position']
+        else resume_fields['experience'][0]['position'],
         'money': resume_fields['salary'] if resume_fields['salary'] else desired_salary,
         'birthday_day': birthdate['day'] if birthdate else None,
         'birthday_month': birthdate['month'] if birthdate else None,
