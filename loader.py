@@ -9,16 +9,6 @@ import requests
 from openpyxl import load_workbook
 
 
-def get_session(api_token):
-    session = requests.Session()
-    session.headers.update(
-        {
-            'Authorization': f'Bearer {api_token}',
-        },
-    )
-    return session
-
-
 def get_huntflow_account_id(session, huntflow_api_endpoint_url):
     url = urllib.parse.urljoin(huntflow_api_endpoint_url, '/accounts')
 
@@ -247,28 +237,31 @@ def main():
     huntflow_endpoint_url = command_line_arguments.endpoint
     huntflow_api_token = command_line_arguments.token
 
-    session = get_session(huntflow_api_token)
+    with requests.Session() as session:
+        session.headers.update(
+            {
+                'Authorization': f'Bearer {huntflow_api_token}',
+            },
+        )
 
-    account_id = get_huntflow_account_id(session, huntflow_endpoint_url)
+        account_id = get_huntflow_account_id(session, huntflow_endpoint_url)
 
-    vacancy_name_to_vacancy_id = get_vacancy_name_to_vacancy_id_dict(
-        vacancies=get_vacancies(session, huntflow_endpoint_url, account_id),
-    )
+        vacancy_name_to_vacancy_id = get_vacancy_name_to_vacancy_id_dict(
+            vacancies=get_vacancies(session, huntflow_endpoint_url, account_id),
+        )
 
-    status_name_to_status_id = get_status_name_to_status_id_dict(
-        vacancy_statuses=get_vacancy_statuses(session, huntflow_endpoint_url, account_id)
-    )
+        status_name_to_status_id = get_status_name_to_status_id_dict(
+            vacancy_statuses=get_vacancy_statuses(session, huntflow_endpoint_url, account_id)
+        )
 
-    run_applicants_loader(
-        source_database_path=source_database_path,
-        session=session,
-        huntflow_endpoint_url=huntflow_endpoint_url,
-        account_id=account_id,
-        vacancy_name_to_vacancy_id=vacancy_name_to_vacancy_id,
-        status_name_to_status_id=status_name_to_status_id,
-    )
-
-    session.close()
+        run_applicants_loader(
+            source_database_path=source_database_path,
+            session=session,
+            huntflow_endpoint_url=huntflow_endpoint_url,
+            account_id=account_id,
+            vacancy_name_to_vacancy_id=vacancy_name_to_vacancy_id,
+            status_name_to_status_id=status_name_to_status_id,
+        )
 
 
 if __name__ == '__main__':
