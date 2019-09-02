@@ -200,7 +200,7 @@ def run_applicants_loader(
             f'на вакансию {applicant_info["vacancy"]}...',
         )
 
-        applicant_info['resume_filepath'] = get_applicant_resume_filepath(
+        applicant_resume_filepath = get_applicant_resume_filepath(
             source_database_path,
             applicant_info,
         )
@@ -209,7 +209,7 @@ def run_applicants_loader(
             session=session,
             huntflow_api_endpoint_url=huntflow_endpoint_url,
             account_id=account_id,
-            source_resume_filepath=applicant_info['resume_filepath'],
+            source_resume_filepath=applicant_resume_filepath,
         )
 
         added_applicant_id = add_applicant_to_huntflow_database(
