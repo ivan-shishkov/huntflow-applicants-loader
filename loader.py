@@ -5,10 +5,18 @@ import glob
 import mimetypes
 import re
 import urllib.parse
+from enum import IntEnum
 
 import configargparse
 import requests
 from openpyxl import load_workbook
+
+
+class ProcessingStatus(IntEnum):
+    PARSING_RESUME = 1
+    ADDING_APPLICANT = 2
+    ATTACHING_TO_VACANCY = 3
+    FINISHED = 4
 
 
 def get_huntflow_account_id(session, huntflow_api_endpoint_url):
@@ -99,8 +107,10 @@ def get_vacancy_statuses(session, huntflow_api_endpoint_url, account_id):
 
 
 def add_applicant_to_vacancy(
-        session, huntflow_api_endpoint_url, account_id, applicant_id, applicant_info,
+        session, huntflow_api_endpoint_url, account_id, applicant_info,
         vacancy_name_to_vacancy_id, status_name_to_status_id):
+    applicant_id = applicant_info['added_applicant_id']
+
     url = urllib.parse.urljoin(huntflow_api_endpoint_url, f'/account/{account_id}/applicants/{applicant_id}/vacancy')
 
     applicant_vacancy = {
@@ -152,6 +162,7 @@ def get_applicant_info_from_excel_database(base_path):
             'desired_salary': get_normalized_salary(row_values[2]),
             'comment': row_values[3],
             'status': row_values[4],
+            'processing_status': None,
         }
 
 
@@ -192,17 +203,22 @@ def get_command_line_arguments():
     return parser.parse_args()
 
 
-def save_order_number(filepath, order_number):
+def save_applicant_info(filepath, applicant_info):
     with open(filepath, 'w') as file_object:
-        json.dump({'order_number': order_number}, file_object)
+        json.dump(applicant_info, file_object)
 
 
-def load_order_number(filepath):
+def load_applicant_info(filepath):
     if not os.path.exists(filepath):
         return None
 
     with open(filepath) as file_object:
-        return json.load(file_object)['order_number']
+        return json.load(file_object)
+
+
+def remove_file(filepath):
+    if os.path.exists(filepath):
+        os.remove(filepath)
 
 
 def run_applicants_loader(
@@ -210,12 +226,15 @@ def run_applicants_loader(
         vacancy_name_to_vacancy_id, status_name_to_status_id, save_state_filepath='current.sav'):
     applicant_info = None
 
-    order_number = load_order_number(save_state_filepath)
+    saved_applicant_info = load_applicant_info(save_state_filepath)
 
     try:
         for applicant_info in get_applicant_info_from_excel_database(source_database_path):
-            if order_number and applicant_info['order_number'] < order_number:
+            if saved_applicant_info and applicant_info['order_number'] < saved_applicant_info['order_number']:
                 continue
+
+            if saved_applicant_info and applicant_info['order_number'] == saved_applicant_info['order_number']:
+                applicant_info = saved_applicant_info
 
             print(
                 f'#{applicant_info["order_number"]}: '
@@ -223,42 +242,48 @@ def run_applicants_loader(
                 f'на вакансию {applicant_info["vacancy"]}...',
             )
 
-            applicant_resume_filepath = get_applicant_resume_filepath(
-                source_database_path,
-                applicant_info,
-            )
+            if applicant_info['processing_status'] is None:
+                applicant_info['processing_status'] = ProcessingStatus.PARSING_RESUME
 
-            applicant_info['parsed_resume'] = get_parsed_applicant_resume(
-                session=session,
-                huntflow_api_endpoint_url=huntflow_endpoint_url,
-                account_id=account_id,
-                source_resume_filepath=applicant_resume_filepath,
-            )
+            if applicant_info['processing_status'] == ProcessingStatus.PARSING_RESUME:
+                applicant_resume_filepath = get_applicant_resume_filepath(
+                    source_database_path,
+                    applicant_info,
+                )
+                applicant_info['parsed_resume'] = get_parsed_applicant_resume(
+                    session=session,
+                    huntflow_api_endpoint_url=huntflow_endpoint_url,
+                    account_id=account_id,
+                    source_resume_filepath=applicant_resume_filepath,
+                )
+                applicant_info['processing_status'] = ProcessingStatus.ADDING_APPLICANT
 
-            added_applicant_id = add_applicant_to_huntflow_database(
-                session=session,
-                huntflow_api_endpoint_url=huntflow_endpoint_url,
-                account_id=account_id,
-                applicant_info=applicant_info,
-            )
+            if applicant_info['processing_status'] == ProcessingStatus.ADDING_APPLICANT:
+                applicant_info['added_applicant_id'] = add_applicant_to_huntflow_database(
+                    session=session,
+                    huntflow_api_endpoint_url=huntflow_endpoint_url,
+                    account_id=account_id,
+                    applicant_info=applicant_info,
+                )
+                applicant_info['processing_status'] = ProcessingStatus.ATTACHING_TO_VACANCY
 
-            add_applicant_to_vacancy(
-                session=session,
-                huntflow_api_endpoint_url=huntflow_endpoint_url,
-                account_id=account_id,
-                applicant_id=added_applicant_id,
-                applicant_info=applicant_info,
-                vacancy_name_to_vacancy_id=vacancy_name_to_vacancy_id,
-                status_name_to_status_id=status_name_to_status_id,
-            )
+            if applicant_info['processing_status'] == ProcessingStatus.ATTACHING_TO_VACANCY:
+                add_applicant_to_vacancy(
+                    session=session,
+                    huntflow_api_endpoint_url=huntflow_endpoint_url,
+                    account_id=account_id,
+                    applicant_info=applicant_info,
+                    vacancy_name_to_vacancy_id=vacancy_name_to_vacancy_id,
+                    status_name_to_status_id=status_name_to_status_id,
+                )
+                applicant_info['processing_status'] = ProcessingStatus.FINISHED
     except:
         if applicant_info:
-            save_order_number(save_state_filepath, applicant_info['order_number'])
+            save_applicant_info(save_state_filepath, applicant_info)
 
         raise
 
-    if os.path.exists(save_state_filepath):
-        os.remove(save_state_filepath)
+    remove_file(save_state_filepath)
 
 
 def main():
