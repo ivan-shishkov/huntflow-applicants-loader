@@ -108,7 +108,7 @@ def get_vacancy_statuses(session, huntflow_api_endpoint_url, account_id):
     return vacancy_statuses['items']
 
 
-def add_applicant_to_vacancy(
+def attach_applicant_to_vacancy(
         session, huntflow_api_endpoint_url, account_id, applicant_info,
         vacancy_name_to_vacancy_id, status_name_to_status_id):
     applicant_id = applicant_info['added_applicant_id']
@@ -121,9 +121,9 @@ def add_applicant_to_vacancy(
         'comment': applicant_info['comment'],
     }
 
-    added_applicant_info = session.post(url, json=applicant_vacancy).json()
+    attached_applicant_info = session.post(url, json=applicant_vacancy).json()
 
-    return added_applicant_info['id']
+    return attached_applicant_info['id']
 
 
 def get_vacancy_name_to_vacancy_id_dict(vacancies):
@@ -205,12 +205,12 @@ def get_command_line_arguments():
     return parser.parse_args()
 
 
-def save_applicant_info(filepath, applicant_info):
+def save_json_data(filepath, data):
     with open(filepath, 'w') as file_object:
-        json.dump(applicant_info, file_object)
+        json.dump(data, file_object)
 
 
-def load_applicant_info(filepath):
+def load_json_data(filepath):
     if not os.path.exists(filepath):
         return None
 
@@ -224,11 +224,12 @@ def remove_file(filepath):
 
 
 def run_applicants_loader(
-        source_database_path, session, huntflow_endpoint_url, account_id,
-        vacancy_name_to_vacancy_id, status_name_to_status_id, save_state_filepath='current.sav'):
+        source_database_path, session, huntflow_api_endpoint_url, account_id,
+        vacancy_name_to_vacancy_id, status_name_to_status_id,
+        save_current_applicant_info_filepath='current.sav'):
     applicant_info = None
 
-    saved_applicant_info = load_applicant_info(save_state_filepath)
+    saved_applicant_info = load_json_data(save_current_applicant_info_filepath)
 
     try:
         for applicant_info in get_applicant_info_from_excel_database(source_database_path):
@@ -249,12 +250,12 @@ def run_applicants_loader(
 
             if applicant_info['processing_status'] == ProcessingStatus.PARSING_RESUME:
                 applicant_resume_filepath = get_applicant_resume_filepath(
-                    source_database_path,
-                    applicant_info,
+                    base_path=source_database_path,
+                    applicant_info=applicant_info,
                 )
                 applicant_info['parsed_resume'] = get_parsed_applicant_resume(
                     session=session,
-                    huntflow_api_endpoint_url=huntflow_endpoint_url,
+                    huntflow_api_endpoint_url=huntflow_api_endpoint_url,
                     account_id=account_id,
                     source_resume_filepath=applicant_resume_filepath,
                 )
@@ -263,16 +264,16 @@ def run_applicants_loader(
             if applicant_info['processing_status'] == ProcessingStatus.ADDING_APPLICANT:
                 applicant_info['added_applicant_id'] = add_applicant_to_huntflow_database(
                     session=session,
-                    huntflow_api_endpoint_url=huntflow_endpoint_url,
+                    huntflow_api_endpoint_url=huntflow_api_endpoint_url,
                     account_id=account_id,
                     applicant_info=applicant_info,
                 )
                 applicant_info['processing_status'] = ProcessingStatus.ATTACHING_TO_VACANCY
 
             if applicant_info['processing_status'] == ProcessingStatus.ATTACHING_TO_VACANCY:
-                add_applicant_to_vacancy(
+                attach_applicant_to_vacancy(
                     session=session,
-                    huntflow_api_endpoint_url=huntflow_endpoint_url,
+                    huntflow_api_endpoint_url=huntflow_api_endpoint_url,
                     account_id=account_id,
                     applicant_info=applicant_info,
                     vacancy_name_to_vacancy_id=vacancy_name_to_vacancy_id,
@@ -281,18 +282,18 @@ def run_applicants_loader(
                 applicant_info['processing_status'] = ProcessingStatus.FINISHED
     except:
         if applicant_info:
-            save_applicant_info(save_state_filepath, applicant_info)
+            save_json_data(save_current_applicant_info_filepath, applicant_info)
 
         raise
 
-    remove_file(save_state_filepath)
+    remove_file(save_current_applicant_info_filepath)
 
 
 def main():
     command_line_arguments = get_command_line_arguments()
 
     source_database_path = command_line_arguments.path
-    huntflow_endpoint_url = command_line_arguments.endpoint
+    huntflow_api_endpoint_url = command_line_arguments.endpoint
     huntflow_api_token = command_line_arguments.token
 
     with requests.Session() as session:
@@ -302,20 +303,20 @@ def main():
             },
         )
 
-        account_id = get_huntflow_account_id(session, huntflow_endpoint_url)
+        account_id = get_huntflow_account_id(session, huntflow_api_endpoint_url)
 
         vacancy_name_to_vacancy_id = get_vacancy_name_to_vacancy_id_dict(
-            vacancies=get_vacancies(session, huntflow_endpoint_url, account_id),
+            vacancies=get_vacancies(session, huntflow_api_endpoint_url, account_id),
         )
 
         status_name_to_status_id = get_status_name_to_status_id_dict(
-            vacancy_statuses=get_vacancy_statuses(session, huntflow_endpoint_url, account_id)
+            vacancy_statuses=get_vacancy_statuses(session, huntflow_api_endpoint_url, account_id)
         )
 
         run_applicants_loader(
             source_database_path=source_database_path,
             session=session,
-            huntflow_endpoint_url=huntflow_endpoint_url,
+            huntflow_api_endpoint_url=huntflow_api_endpoint_url,
             account_id=account_id,
             vacancy_name_to_vacancy_id=vacancy_name_to_vacancy_id,
             status_name_to_status_id=status_name_to_status_id,
